@@ -6,7 +6,6 @@ String nameColumn = "nameColumn";
 String publisherColumn = "publisherColumn";
 String genreColumn = "genreColumn";
 String ratingColumn = "ratingColumn";
-String posterColumn = "posterColumn";
 String gameTable = "gameTable";
 
 class GameHelper {
@@ -17,12 +16,8 @@ class GameHelper {
   late Database _database;
 
   Future<Database> get database async {
-    if (_database != null) {
-      return _database;
-    } else {
-      _database = await initDb();
-      return _database;
-    }
+    // Inicializa _database se ainda não foi feito
+    return _database ??= await initDb();
   }
 
   Future<Database> initDb() async {
@@ -32,13 +27,17 @@ class GameHelper {
     return await openDatabase(path, version: 1,
         onCreate: (Database database, int newVersion) async {
       await database.execute(
-          "CREATE TABLE $gameTable($idColumn INTEGER PRIMARY KEY, $nameColumn TEXT, $publisherColumn TEXT, $genreColumn TEXT, $ratingColumn TEXT, $posterColumn TEXT)");
+          "CREATE TABLE $gameTable($idColumn INTEGER PRIMARY KEY, $nameColumn TEXT, $publisherColumn TEXT, $genreColumn TEXT, $ratingColumn TEXT)");
     });
   }
 
   Future<Game> saveGame(Game game) async {
     Database dbGame = await database;
-    game.id = await dbGame.insert(gameTable, game.toMap());
+    try {
+      game.id = await dbGame.insert(gameTable, game.toMap());
+    } catch (e) {
+      print("Erro ao salvar o jogo: $e");
+    }
     return game;
   }
 
@@ -50,8 +49,7 @@ class GameHelper {
           nameColumn,
           publisherColumn,
           genreColumn,
-          ratingColumn,
-          posterColumn
+          ratingColumn
         ],
         where: "$idColumn = ?",
         whereArgs: [id]);
@@ -62,14 +60,11 @@ class GameHelper {
     }
   }
 
-  Future<List> getAllGames() async {
+  Future<List<Game>> getAllGames() async {
     Database dbGame = await database;
     List<Map<String, dynamic>> listMap =
         await dbGame.rawQuery("SELECT * FROM $gameTable");
-    List<Game> listGame = [];
-    for (Map<String, dynamic> m in listMap) {
-      listGame.add(Game.fromMap(m));
-    }
+    List<Game> listGame = listMap.map((map) => Game.fromMap(map)).toList();
     return listGame;
   }
 
@@ -92,7 +87,6 @@ class Game {
   String? publisher;
   String? genre;
   String? rating;
-  String? poster;
 
   Game();
 
@@ -102,7 +96,6 @@ class Game {
     publisher = map[publisherColumn];
     genre = map[genreColumn];
     rating = map[ratingColumn];
-    poster = map[posterColumn];
   }
 
   Map<String, dynamic> toMap() {
@@ -110,8 +103,7 @@ class Game {
       nameColumn: name,
       publisherColumn: publisher,
       genreColumn: genre,
-      ratingColumn: rating,
-      posterColumn: poster
+      ratingColumn: rating
     };
     if (id != null) {
       map[idColumn] = id;
